@@ -1,0 +1,52 @@
+services:
+  kafka:
+    image: confluentinc/cp-kafka:7.2.15
+    container_name: kafka
+    ports:
+      - "9092:9092"
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_LISTENERS: BROKER://kafka:9092,CONTROLLER://kafka:29093
+      KAFKA_ADVERTISED_LISTENERS: BROKER://localhost:9092
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:29093
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      CLUSTER_ID: ZxcCUGdCTxqS4PG3WiaYdQ
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
+    volumes:
+      - kafka-data:/var/lib/kafka/data
+    networks:
+      - sentiment-network
+
+  producer:
+    build: ./producer
+    container_name: producer
+    depends_on:
+      - kafka
+    networks:
+      - sentiment-network
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      TOPIC_NAME: sentiment_topic
+
+  consumer:
+    build: ./consumer 
+    container_name: consumer
+    depends_on: 
+      - kafka
+    networks:
+      - sentiment-network
+
+networks:
+  sentiment-network:
+    driver: bridge
+
+volumes:
+  kafka-data:
+    driver: local
+  
+
+  
+
