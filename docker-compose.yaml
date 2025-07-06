@@ -23,24 +23,26 @@ services:
   producer:
     build: ./producer
     container_name: producer
-    depends_on:
-      - kafka
+    depends_on: 
+      kafka:
+        condition: service_started
     networks:
       - sentiment-network
     environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      TOPIC_NAME: sentiment_topic
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      TOPIC_NAME: ${KAFKA_TOPIC}
 
   consumer:
     build: ./consumer 
     container_name: consumer
     depends_on: 
-      - kafka
+      kafka:
+        condition: service_started
     networks:
       - sentiment-network
     environment:
-      KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      TOPIC_NAME: sentiment_topic
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      TOPIC_NAME: ${KAFKA_TOPIC}
 
 networks:
   sentiment-network:
@@ -49,7 +51,5 @@ networks:
 volumes:
   kafka-data:
     driver: local
-  
 
-  
 

@@ -3,9 +3,12 @@ import os
 import gzip
 import json
 import time
+from time import sleep as Sleep
+
 
 
 def main():
+    Sleep(60)
    # Assign environment variables
     kafka_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS')
     kafka_topic = os.getenv('TOPIC_NAME')
