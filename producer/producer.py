@@ -1,15 +1,15 @@
 from kafka import KafkaProducer
+from kafka import KafkaAdminClient
 import os
 import gzip
 import json
 import time
 
-def kafka_wait():
-    kafka_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS')
-    
+def kafka_wait(kafka_servers):
+
     # Wait for Kafka
     start = time.time()
-    while time.time() - start < 30:
+    while time.time() - start < 30.0:
         try:
             admin_client = KafkaAdminClient(bootstrap_servers=kafka_servers)
             admin_client.list_topics()
@@ -23,8 +23,8 @@ def main():
     kafka_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS')
     kafka_topic = os.getenv('TOPIC_NAME')
 
-    # Wait for Kafka to be ready
-    kafka_wait()
+    # Wait for Kafka broker to be ready
+    kafka_wait(kafka_servers)
 
     # Create Kafka producer object and specify the broker address 
     producer = KafkaProducer(bootstrap_servers=kafka_servers,

@@ -1,10 +1,9 @@
 from kafka import KafkaConsumer
+from kafka import KafkaAdminClient
 import os
 import time
 
-def kafka_wait():
-    kafka_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS')
-    
+def kafka_wait(kafka_servers):    
     # Wait for Kafka
     start = time.time()
     while time.time() - start < 30:
@@ -21,7 +20,7 @@ def main():
     kafka_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS')
     kafka_topic = os.getenv('TOPIC_NAME')
 
-    kafka_wait()  # Wait for Kafka to be ready
+    kafka_wait(kafka_servers)  # Wait for Kafka to be ready
 
     # Create Kafa consumer object and specify the broker address
     consumer = KafkaConsumer(kafka_topic,
