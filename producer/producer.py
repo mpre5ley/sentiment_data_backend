@@ -5,17 +5,18 @@ import gzip
 import json
 import time
 
-def kafka_wait(kafka_servers):
-
-    # Wait for Kafka
+def ping_kafka_cluster(kafka_servers):   
+    
+    # Look for topic list reponse from Kafka broker, timeout at 30 seconds
+    timeout = 30.0
     start = time.time()
-    while time.time() - start < 30.0:
+    while time.time() - start < timeout:
         try:
             admin_client = KafkaAdminClient(bootstrap_servers=kafka_servers)
             admin_client.list_topics()
             break
         except Exception as e:
-            print(f"Waiting for Kafka to be ready... {e}")
+            print(f"Waiting for Kafka broker. Error: {e}")
 
 def main():
 
@@ -24,7 +25,7 @@ def main():
     kafka_topic = os.getenv('TOPIC_NAME')
 
     # Wait for Kafka broker to be ready
-    kafka_wait(kafka_servers)
+    ping_kafka_cluster(kafka_servers)
 
     # Create Kafka producer object and specify the broker address 
     producer = KafkaProducer(bootstrap_servers=kafka_servers,
@@ -38,11 +39,9 @@ def main():
         for line in file:
             record = json.loads(line)
             print(f"Producing record: {record}")
-            # insert line to send record to Kafka broker TBC
             producer.send(kafka_topic, value=record)
 
     producer.close()
 
 if __name__ == "__main__":
-    #time.sleep(10)  # Optional: sleep to ensure Kafka is ready before producing
     main()
