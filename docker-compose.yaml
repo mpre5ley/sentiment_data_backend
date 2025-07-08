@@ -43,6 +43,21 @@ services:
     environment:
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       TOPIC_NAME: ${KAFKA_TOPIC}
+  
+  pyspark-worker:
+    build: ./pyspark-worker
+    container_name: pyspark-worker
+    user: root
+    networks: 
+      - sentiment-network
+    depends_on:
+      - producer
+      - consumer
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
+      KAFKA_TOPIC: ${KAFKA_TOPIC}
+      SPARK_KAFKA_MAX_RETRIES: 30
+      SPARK_KAFKA_RETRY_DELAY: 2
 
 networks:
   sentiment-network:
