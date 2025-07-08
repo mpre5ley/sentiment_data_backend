@@ -40,7 +40,6 @@ def main():
             print(f"Producing record: {record}")
             # insert line to send record to Kafka broker TBC
             producer.send(kafka_topic, value=record)
-            time.sleep(1)  # Optional: sleep to control the rate of sending messages
 
     producer.close()
 
