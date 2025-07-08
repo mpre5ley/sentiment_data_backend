@@ -36,7 +36,7 @@ def main():
         print(f"From the topic: {message.topic}\n"
               f"Timestamp: {message.timestamp}\n"
               f"Offset: {message.offset}\n"
-              f"Consumed message:{message.value:.50s}")
+              f"Consumed message:\n{message.value:.200s}\n")
     consumer.close()
 
 if __name__ == "__main__":
