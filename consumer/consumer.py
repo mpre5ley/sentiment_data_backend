@@ -33,8 +33,10 @@ def main():
                              value_deserializer=lambda x: x.decode('utf-8'))
     
     for message in consumer:
-        print(f"Consumed message: {message.value} from topic: {message.topic} at offset: {message.offset}")
-
+        print(f"From the topic: {message.topic}\n"
+              f"Timestamp: {message.timestamp}\n"
+              f"Offset: {message.offset}\n"
+              f"Consumed message:{message.value:.50s}")
     consumer.close()
 
 if __name__ == "__main__":
