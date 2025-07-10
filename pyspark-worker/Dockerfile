@@ -1,12 +1,10 @@
-FROM apache/spark-py:latest
+FROM bitnami/spark:3.4.1
 
-WORKDIR /app
-RUN apt-get update && rm -rf /var/lib/apt/lists/*
+# Set the working directory in the container, install dependencies
+COPY pyspark-worker.py /opt/spark-app/
+COPY requirements.txt /tmp/
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY spark_worker.py .
-
-ENTRYPOINT ["python", "spark_worker.py"]
+# Add Kafka JARs into Spark's built-in classpath
+COPY jars/*.jar /opt/bitnami/spark/jars/
 
