@@ -27,10 +27,10 @@ def main():
 
     # Check if Kafka broker is available
     if not ping_kafka_cluster(kafka_servers):
-        print("Kafka broker is not available. Exiting...")
+        print("Kafka broker is not available. Terminating application.")
         return
     else:
-        print("Kafka broker is available. Proceeding...")
+        print("Kafka broker is available. Producer proceeding.")
 
     # Create Kafka producer object and specify the broker address 
     producer = KafkaProducer(bootstrap_servers=kafka_servers,
