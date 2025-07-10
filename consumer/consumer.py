@@ -11,9 +11,12 @@ def ping_kafka_cluster(kafka_servers):
         try:
             admin_client = KafkaAdminClient(bootstrap_servers=kafka_servers)
             admin_client.list_topics()
+            admin_client.close()
             return True
         except Exception as e:
             print(f"Waiting for Kafka broker. Error: {e}")
+    return False
+
 
 def main():
     # Assign environment variables

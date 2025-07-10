@@ -3,7 +3,6 @@ from pyspark.sql import SparkSession
 import os
 import time
 
-
 def ping_kafka_cluster(kafka_servers):   
     # Look for topic list reponse from Kafka broker, timeout at 30 seconds
     timeout = 30.0
@@ -12,9 +11,11 @@ def ping_kafka_cluster(kafka_servers):
         try:
             admin_client = KafkaAdminClient(bootstrap_servers=kafka_servers)
             admin_client.list_topics()
+            admin_client.close()
             return True
         except Exception as e:
             print(f"Waiting for Kafka broker. Error: {e}")
+    return False
 
 def main():
     # Assign environment variables
