@@ -13,15 +13,6 @@ A real-time, containerized data pipeline that ingests, processes, and displays s
 - **Kafka-Python** – Producer/consumer integration  
 - **Spark Structured Streaming** – Real-time data processing
 
-## 🧱 Architecture
-
-```mermaid
-graph LR
-  A[Kafka Producer (Python)] -->|sends JSON| B(Kafka Topic: sentiment_data)
-  B -->|reads from topic| C[PySpark Streaming App]
-  C -->|writes to| D[Console / SQLite / Cassandra]
-```
-
 ---
 
 ## Setup Instructions
