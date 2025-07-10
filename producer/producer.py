@@ -6,7 +6,6 @@ import json
 import time
 
 def ping_kafka_cluster(kafka_servers):   
-    
     # Look for topic list reponse from Kafka broker, timeout at 30 seconds
     timeout = 30.0
     start = time.time()
@@ -14,18 +13,21 @@ def ping_kafka_cluster(kafka_servers):
         try:
             admin_client = KafkaAdminClient(bootstrap_servers=kafka_servers)
             admin_client.list_topics()
-            break
+            return True
         except Exception as e:
             print(f"Waiting for Kafka broker. Error: {e}")
 
 def main():
-
    # Assign environment variables
     kafka_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS')
     kafka_topic = os.getenv('TOPIC_NAME')
 
-    # Wait for Kafka broker to be ready
-    ping_kafka_cluster(kafka_servers)
+    # Check if Kafka broker is available
+    if not ping_kafka_cluster(kafka_servers):
+        print("Kafka broker is not available. Exiting...")
+        return
+    else:
+        print("Kafka broker is available. Proceeding...")
 
     # Create Kafka producer object and specify the broker address 
     producer = KafkaProducer(bootstrap_servers=kafka_servers,

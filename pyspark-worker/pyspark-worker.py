@@ -12,7 +12,7 @@ def ping_kafka_cluster(kafka_servers):
         try:
             admin_client = KafkaAdminClient(bootstrap_servers=kafka_servers)
             admin_client.list_topics()
-            break
+            return True
         except Exception as e:
             print(f"Waiting for Kafka broker. Error: {e}")
 
@@ -21,8 +21,12 @@ def main():
     kafka_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS')
     kafka_topic = os.getenv('TOPIC_NAME')
 
-    # Check if Kafka broker is available with a 30 second timeout
-    ping_kafka_cluster(kafka_servers)
+    # Check if Kafka broker is available
+    if not ping_kafka_cluster(kafka_servers):
+        print("Kafka broker is not available. Exiting...")
+        return
+    else:
+        print("Kafka broker is available. Proceeding...")
 
     # Create Spark session
     spark = SparkSession.builder \
