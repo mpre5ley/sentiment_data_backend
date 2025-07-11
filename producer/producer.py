@@ -43,7 +43,7 @@ def main():
     with gzip.open('./data/Appliances_5.json.gz', 'rb') as file:
         for line in file:
             record = json.loads(line)
-            print(f"Producing record: {record}")
+            #print(f"Producing record: {record}")
             producer.send(kafka_topic, value=record)
 
     producer.close()

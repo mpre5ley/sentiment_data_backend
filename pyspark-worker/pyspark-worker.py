@@ -1,5 +1,8 @@
 from kafka import KafkaAdminClient
 from pyspark.sql import SparkSession
+from pyspark.sql.functions import col, lower, regexp_replace
+from pyspark.ml.feature import Tokenizer, StopWordsRemover
+from pyspark.sql.types import StringType
 import os
 import time
 
@@ -41,15 +44,35 @@ def main():
         .option("subscribe", kafka_topic) \
         .option("startingOffsets", "earliest") \
         .load()
+
+    # Remove punctuation and make all letters lower case   
+    df_clean = df.withColumn("text_lower", lower(col("value").cast(StringType())))
+    df_clean = df_clean.withColumn("text_lower", regexp_replace("text_lower", "[^a-zA-Z0-9\\s]", ""))
+
+    # Tokenize all sentences
+    tokenizer = Tokenizer(inputCol="text_lower", outputCol="tokens")
+    df_tokens = tokenizer.transform(df_clean)
+    
+    # Remove stopwords
+    custom_stopwords = StopWordsRemover.loadDefaultStopWords("english")
+    remover = StopWordsRemover(inputCol="tokens", outputCol="tokens_no_stopwords", stopWords=custom_stopwords)
+    df_no_stopwords = remover.transform(df_tokens)
+
+    # Assign new columns to final dataframe
+    processed_spark_df = df_no_stopwords.select("timestamp", "text_lower", "tokens", "tokens_no_stopwords")
     
     # Prepare and starts stream output to console
-    query = df.writeStream \
+    query = processed_spark_df.writeStream \
         .format("console") \
         .outputMode("append") \
         .start()
 
     # Waits for the stream to finish
     query.awaitTermination()    
+
+    # Stop the Spark session
+    query.stop()
+    spark.stop()
 
 if __name__ == "__main__":
     main()
