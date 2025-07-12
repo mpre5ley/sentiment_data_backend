@@ -1,5 +1,7 @@
 pyspark==3.4.1
 kafka-python==2.0.2
+mysql-connector-python==8.3.0
+
 # PySpark NLP dependencies
 numpy==1.26.4
 pandas==2.1.3

@@ -3,6 +3,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, lower, regexp_replace
 from pyspark.ml.feature import Tokenizer, StopWordsRemover
 from pyspark.sql.types import StringType
+from pyspark.sql.functions import concat_ws
 import os
 import time
 
@@ -19,6 +20,28 @@ def ping_kafka_cluster(kafka_servers):
         except Exception as e:
             print(f"Waiting for Kafka broker. Error: {e}")
     return False
+
+
+def write_transformed_batch(batch_df, batch_id):
+    # Flatten tokens and tokens_no_stopwords columns
+    transformed_df = batch_df \
+        .withColumn("tokens", concat_ws(" ", "tokens")) \
+        .withColumn("tokens_no_stopwords", concat_ws(" ", "tokens_no_stopwords"))
+    
+    # Set MySQL properties
+    mysql_url = "jdbc:mysql://mysql:3306/sentiment_db"
+    mysql_properties = {
+        "user": "user",
+        "password": "password",
+        "driver": "com.mysql.cj.jdbc.Driver"}
+    
+    # Write to MySQL db
+    transformed_df.write.jdbc(
+        url=mysql_url,
+        table="processed_reviews",
+        mode="append",
+        properties=mysql_properties
+    )
 
 def main():
     # Assign environment variables
@@ -61,11 +84,11 @@ def main():
     # Assign new columns to final dataframe
     processed_spark_df = df_no_stopwords.select("timestamp", "text_lower", "tokens", "tokens_no_stopwords")
     
-    # Prepare and starts stream output to console
-    query = processed_spark_df.writeStream \
-        .format("console") \
-        .outputMode("append") \
-        .start()
+    # Wait for MySQL to be ready
+    time.sleep(10)
+
+    # Use the function in foreachBatch
+    query = processed_spark_df.writeStream.foreachBatch(write_transformed_batch).start()
 
     # Waits for the stream to finish
     query.awaitTermination()    
@@ -75,7 +98,4 @@ def main():
     spark.stop()
 
 if __name__ == "__main__":
-    main()
-
-    
-
+    main() 

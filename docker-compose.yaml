@@ -50,6 +50,7 @@ services:
     user: root
     depends_on:
       - kafka
+      - mysql
     networks: 
       - sentiment-network
     volumes:
@@ -62,8 +63,21 @@ services:
     command: >
       spark-submit --master local[*]
       /opt/spark-app/pyspark-worker.py
-    env_file:
-      - .env
+
+  mysql:
+    image: mysql:8.0
+    container_name: mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: sentiment_db
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - sentiment-network
 
 networks:
   sentiment-network:
@@ -71,5 +85,7 @@ networks:
 
 volumes:
   kafka-data:
+    driver: local
+  mysql-data:
     driver: local
 
