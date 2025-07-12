@@ -19,6 +19,7 @@ services:
       KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,BROKER:PLAINTEXT"
     volumes:
       - kafka-data:/bitnami/kafka
+      - ./config/kafka-log4j.properties:/opt/bitnami/kafka/config/log4j.properties
     networks:
       - sentiment-network
 

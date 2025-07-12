@@ -14,7 +14,7 @@ def ping_kafka_cluster(kafka_servers):
             admin_client.close()
             return True
         except Exception as e:
-            print(f"Waiting for Kafka broker. Error: {e}")
+            pass
     return False
 
 
@@ -37,11 +37,14 @@ def main():
                              group_id='sentiment_analysis_group',
                              value_deserializer=lambda x: x.decode('utf-8'))
     
-   # for message in consumer:
-    #    print(f"From the topic: {message.topic}\n"
-     #         f"Timestamp: {message.timestamp}\n"
-      #        f"Offset: {message.offset}\n"
-       #       f"Consumed message:\n{message.value:.200s}\n")
+    # Print 1 record from the consumer
+    for message in consumer:
+        print(f"From the topic: {message.topic}\n"
+              f"Timestamp: {message.timestamp}\n"
+              f"Offset: {message.offset}\n"
+              f"Consumed message:\n{message.value:.50s}\n")
+        break
+    
     consumer.close()
 
 if __name__ == "__main__":

@@ -16,7 +16,7 @@ def ping_kafka_cluster(kafka_servers):
             admin_client.close()
             return True
         except Exception as e:
-            print(f"Waiting for Kafka broker. Error: {e}")
+            pass
     return False
 
 
@@ -40,10 +40,13 @@ def main():
                              acks='all')
     
     # Import data from Gzip file
+    record_total = 0
     with gzip.open('./data/Appliances_5.json.gz', 'rb') as file:
         for line in file:
             record = json.loads(line)
-            #print(f"Producing record: {record}")
+            if record_total < 5:
+                print(f"Producing record: {record}")
+                record_total += 1
             producer.send(kafka_topic, value=record)
 
     producer.close()

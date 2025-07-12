@@ -6,6 +6,7 @@ from pyspark.sql.types import StringType
 from pyspark.sql.functions import concat_ws
 import os
 import time
+import mysql.connector
 
 def ping_kafka_cluster(kafka_servers):   
     # Look for topic list reponse from Kafka broker, timeout at 30 seconds
@@ -18,11 +19,10 @@ def ping_kafka_cluster(kafka_servers):
             admin_client.close()
             return True
         except Exception as e:
-            print(f"Waiting for Kafka broker. Error: {e}")
+            pass
     return False
 
-
-def write_transformed_batch(batch_df, batch_id):
+def write_transformed_batch(batch_df, broker_id):
     # Flatten tokens and tokens_no_stopwords columns
     transformed_df = batch_df \
         .withColumn("tokens", concat_ws(" ", "tokens")) \
@@ -43,6 +43,27 @@ def write_transformed_batch(batch_df, batch_id):
         properties=mysql_properties
     )
 
+def preview_mysql_rows():
+    try:
+        conn = mysql.connector.connect(
+            host="mysql",     
+            user="user",
+            password="password",
+            database="sentiment_db"
+        )
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM processed_reviews LIMIT 3")
+        rows = cursor.fetchall()
+
+        print("[MYSQL] Preview 3 records:")
+        for row in rows:
+            print(row)
+
+        cursor.close()
+        conn.close()
+    except mysql.connector.Error as err:
+        print(f"[MYSQL] Error: {err}")
+
 def main():
     # Assign environment variables
     kafka_servers = os.getenv('KAFKA_BOOTSTRAP_SERVERS')
@@ -59,6 +80,9 @@ def main():
     spark = SparkSession.builder \
         .appName("KafkaSparkProcessor") \
         .getOrCreate()
+    
+    # Set logging to Error only
+    spark.sparkContext.setLogLevel("ERROR")
     
     # Read topic from Kafka server at the earliest message
     df = spark.readStream \
@@ -83,12 +107,20 @@ def main():
 
     # Assign new columns to final dataframe
     processed_spark_df = df_no_stopwords.select("timestamp", "text_lower", "tokens", "tokens_no_stopwords")
+
+    # Print header and first 5 rows of processed_spark_df
+    print("Processed DataFrame Schema:")
+    processed_spark_df.printSchema()
     
     # Wait for MySQL to be ready
-    time.sleep(10)
+    time.sleep(5)
 
     # Use the function in foreachBatch
     query = processed_spark_df.writeStream.foreachBatch(write_transformed_batch).start()
+
+    # Print a preview of the first 5 rows in MySQL
+    time.sleep(5)
+    preview_mysql_rows()
 
     # Waits for the stream to finish
     query.awaitTermination()    
