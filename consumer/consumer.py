@@ -36,7 +36,6 @@ def main():
                              auto_offset_reset='earliest',
                              group_id='sentiment_analysis_group',
                              value_deserializer=lambda x: x.decode('utf-8'))
-    
     # Print 1 record from the consumer
     for message in consumer:
         print(f"From the topic: {message.topic}\n"
@@ -44,7 +43,6 @@ def main():
               f"Offset: {message.offset}\n"
               f"Consumed message:\n{message.value:.50s}\n")
         break
-    
     consumer.close()
 
 if __name__ == "__main__":

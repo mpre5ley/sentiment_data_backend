@@ -4,23 +4,10 @@ from pyspark.sql.functions import col, lower, regexp_replace
 from pyspark.ml.feature import Tokenizer, StopWordsRemover
 from pyspark.sql.types import StringType
 from pyspark.sql.functions import concat_ws
+from utils import ping_kafka_cluster
 import os
 import time
 import mysql.connector
-
-def ping_kafka_cluster(kafka_servers):   
-    # Look for topic list reponse from Kafka broker, timeout at 30 seconds
-    timeout = 30.0
-    start = time.time()
-    while time.time() - start < timeout:
-        try:
-            admin_client = KafkaAdminClient(bootstrap_servers=kafka_servers)
-            admin_client.list_topics()
-            admin_client.close()
-            return True
-        except Exception as e:
-            pass
-    return False
 
 def write_transformed_batch(batch_df, broker_id):
     # Flatten tokens and tokens_no_stopwords columns
@@ -55,7 +42,6 @@ def preview_mysql_rows():
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM processed_reviews LIMIT 3")
         rows = cursor.fetchall()
-
         print("MySQL records:")
         for row in rows:
             print(row[1]) 

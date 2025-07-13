@@ -24,7 +24,9 @@ services:
       - sentiment-network
 
   producer:
-    build: ./producer
+    build: 
+      context: .
+      dockerfile: producer/Dockerfile
     container_name: producer
     depends_on: 
       - kafka 
@@ -35,7 +37,9 @@ services:
       TOPIC_NAME: ${KAFKA_TOPIC}
 
   consumer:
-    build: ./consumer 
+    build:
+      context: .
+      dockerfile: consumer/Dockerfile
     container_name: consumer
     depends_on: 
       - kafka
@@ -46,7 +50,9 @@ services:
       TOPIC_NAME: ${KAFKA_TOPIC}
   
   pyspark-worker:
-    build: ./pyspark-worker
+    build:
+      context: .
+      dockerfile: pyspark-worker/Dockerfile
     container_name: pyspark-worker
     user: root
     depends_on:
