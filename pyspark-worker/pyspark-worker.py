@@ -1,4 +1,3 @@
-from kafka import KafkaAdminClient
 from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, lower, regexp_replace
 from pyspark.ml.feature import Tokenizer, StopWordsRemover
@@ -10,6 +9,11 @@ import time
 import mysql.connector
 
 def write_transformed_batch(batch_df, broker_id):
+    # Skip empty batches
+    if batch_df.count() == 0:
+        print(f"Batch {broker_id} is empty. Skipping write.")
+        return
+        
     # Flatten tokens and tokens_no_stopwords columns
     transformed_df = batch_df \
         .withColumn("tokens", concat_ws(" ", "tokens")) \
@@ -29,6 +33,11 @@ def write_transformed_batch(batch_df, broker_id):
         mode="append",
         properties=mysql_properties
     )
+    
+    # Preview after writing (only for first few batches to avoid spam)
+    if broker_id % 5 == 0:  # Every 5th batch
+        print(f"Batch {broker_id} data written to MySQL")
+        preview_mysql_rows()
 
 def preview_mysql_rows():
     # Connect to the db and print a few rows
@@ -104,16 +113,8 @@ def main():
     # Use the function in foreachBatch
     query = processed_spark_df.writeStream.foreachBatch(write_transformed_batch).start()
 
-    # Print a preview of the first 5 rows in MySQL
-    time.sleep(5)
-    preview_mysql_rows()
-
-    # Waits for the stream to finish
-    query.awaitTermination()    
-
-    # Stop the Spark session
-    query.stop()
-    spark.stop()
+    # Waits for the stream to finish (this blocks indefinitely)
+    query.awaitTermination()
 
 if __name__ == "__main__":
     main() 
