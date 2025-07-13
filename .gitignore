@@ -1,4 +1,11 @@
 # OS Files
 .DS_store
-Thumbs.db
-.vscode
+# VS Code Settings
+.vscode/
+# Python Files
+*.pyc
+__pycache__
+# Docker Logs
+*.log
+# Kafka Data
+kafka-data/
