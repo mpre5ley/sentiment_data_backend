@@ -26,18 +26,29 @@ def write_transformed_batch(batch_df, broker_id):
         "password": "password",
         "driver": "com.mysql.cj.jdbc.Driver"}
     
-    # Write to MySQL db
-    transformed_df.write.jdbc(
-        url=mysql_url,
-        table="processed_reviews",
-        mode="append",
-        properties=mysql_properties
-    )
-    
-    # Preview after writing (only for first few batches to avoid spam)
-    if broker_id % 5 == 0:  # Every 5th batch
-        print(f"Batch {broker_id} data written to MySQL")
-        preview_mysql_rows()
+    # Retry MySQL connection
+    max_retries = 5
+    for attempt in range(max_retries):
+        try:
+            # Write to MySQL db
+            transformed_df.write.jdbc(
+                url=mysql_url,
+                table="processed_reviews",
+                mode="append",
+                properties=mysql_properties
+            )
+            print(f"Batch {broker_id} successfully written to MySQL (attempt {attempt + 1})")
+            # Preview after writing (only for first few batches to avoid spam)
+            if broker_id % 5 == 0:  # Every 5th batch
+                preview_mysql_rows()
+            break
+            
+        except Exception as e:
+            print(f"Batch {broker_id} write failed (attempt {attempt + 1}\nError: {e}")
+            if attempt < max_retries - 1:
+                time.sleep(2)
+            else:
+                print(f"Batch {broker_id} failed after {max_retries} attempts. Skipping batch.")
 
 def preview_mysql_rows():
     # Connect to the db and print a few rows
@@ -107,9 +118,6 @@ def main():
     print("Processed DataFrame Schema:")
     processed_spark_df.printSchema()
     
-    # Wait for MySQL to be ready
-    time.sleep(5)
-
     # Use the function in foreachBatch
     query = processed_spark_df.writeStream.foreachBatch(write_transformed_batch).start()
 
