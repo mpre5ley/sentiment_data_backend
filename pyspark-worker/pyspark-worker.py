@@ -44,6 +44,7 @@ def write_transformed_batch(batch_df, broker_id):
     )
 
 def preview_mysql_rows():
+    # Connect to the db and print a few rows
     try:
         conn = mysql.connector.connect(
             host="mysql",     
@@ -55,14 +56,13 @@ def preview_mysql_rows():
         cursor.execute("SELECT * FROM processed_reviews LIMIT 3")
         rows = cursor.fetchall()
 
-        print("[MYSQL] Preview 3 records:")
+        print("MySQL records:")
         for row in rows:
-            print(row)
-
+            print(row[1]) 
         cursor.close()
         conn.close()
     except mysql.connector.Error as err:
-        print(f"[MYSQL] Error: {err}")
+        print(f"MySQL Error: {err}")
 
 def main():
     # Assign environment variables

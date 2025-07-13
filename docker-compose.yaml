@@ -54,8 +54,6 @@ services:
       - mysql
     networks: 
       - sentiment-network
-    volumes:
-      - ./jars:/opt/spark-extra-jars
     environment:
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       TOPIC_NAME: ${KAFKA_TOPIC}

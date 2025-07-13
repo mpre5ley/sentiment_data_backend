@@ -39,12 +39,10 @@ docker-compose up --build
 ## Example Output
 
 ```
-+--------------------+
-|               value|
-+--------------------+
-|{'overall': 5.0, ...|
-|{'overall': 4.0, ...|
-+--------------------+
+pyspark-worker  | MySQL records:
+pyspark-worker  | overall 50 verified true reviewtime 08 22 2013 reviewerid a34a1up40713f8 asin b00009w3i4 style style  dryer vent reviewername james backus reviewtext i like this as a vent as well as something that will keep house warmer in winter  i sanded it and then painted it the same color as the house  looks great summary great product unixreviewtime 1377129600
+pyspark-worker  | overall 50 verified true reviewtime 02 8 2016 reviewerid a1ahw6i678o6f2 asin b00009w3pa style size  6foot reviewername kevin reviewtext good item summary five stars unixreviewtime 1454889600
+pyspark-worker  | overall 50 verified true reviewtime 08 5 2015 reviewerid a8r48nktgcjdq asin b00009w3pa style size  6foot reviewername cdbrannom reviewtext fit my new lg dryer perfectly summary five stars unixreviewtime 1438732800
 ```
 
 ---
