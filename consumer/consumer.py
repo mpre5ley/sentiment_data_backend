@@ -1,7 +1,6 @@
 from kafka import KafkaConsumer
 from utils import ping_kafka_cluster
 import os
-import time
 
 def main():
     # Assign environment variables
@@ -21,13 +20,18 @@ def main():
                              auto_offset_reset='earliest',
                              group_id='sentiment_analysis_group',
                              value_deserializer=lambda x: x.decode('utf-8'))
-    # Print 1 record from the consumer
+
+    message_count = 0
     for message in consumer:
+        # Print 3 messages to the console
         print(f"From the topic: {message.topic}\n"
               f"Timestamp: {message.timestamp}\n"
               f"Offset: {message.offset}\n"
               f"Consumed message:\n{message.value:.50s}\n")
-        break
+        message_count += 1
+        if message_count >= 3:
+            break
+            
     consumer.close()
 
 if __name__ == "__main__":

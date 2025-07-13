@@ -30,9 +30,12 @@ def main():
             record = json.loads(line)
             if record_total < 5:
                 print(f"Producing record: {record}")
-                record_total += 1
             producer.send(kafka_topic, value=record)
-
+            record_total += 1
+    
+    # Ensure all messages are sent before closing
+    producer.flush()
+    print(f"Produced {record_total} records to topic '{kafka_topic}'")
     producer.close()
 
 if __name__ == "__main__":
