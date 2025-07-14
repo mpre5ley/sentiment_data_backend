@@ -91,12 +91,16 @@ def main():
     spark.sparkContext.setLogLevel("ERROR")
     
     # Read topic from Kafka server at the earliest message
-    df = spark.readStream \
-        .format("kafka") \
-        .option("kafka.bootstrap.servers", kafka_servers) \
-        .option("subscribe", kafka_topic) \
-        .option("startingOffsets", "earliest") \
-        .load()
+    try:
+        df = spark.readStream \
+            .format("kafka") \
+            .option("kafka.bootstrap.servers", kafka_servers) \
+            .option("subscribe", kafka_topic) \
+            .option("startingOffsets", "earliest") \
+            .load()
+    except Exception as e:
+        print(f"Kafka server error is {e}")
+        return
 
     # Remove punctuation and make all letters lower case   
     df_clean = df.withColumn("text_lower", lower(col("value").cast(StringType())))

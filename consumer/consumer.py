@@ -15,11 +15,15 @@ def main():
         print("Kafka broker is available. Consumer proceeding.")
 
     # Create Kafa consumer object and specify the broker address
-    consumer = KafkaConsumer(kafka_topic,
-                             bootstrap_servers=kafka_servers,
-                             auto_offset_reset='earliest',
-                             group_id='sentiment_analysis_group',
-                             value_deserializer=lambda x: x.decode('utf-8'))
+    try:
+        consumer = KafkaConsumer(kafka_topic,
+                                 bootstrap_servers=kafka_servers,
+                                 auto_offset_reset='earliest',
+                                 group_id='sentiment_analysis_group',
+                                 value_deserializer=lambda x: x.decode('utf-8'))
+    except Exception as e:
+        print(f"Kafka consumer error is {e}")
+        return
 
     message_count = 0
     for message in consumer:

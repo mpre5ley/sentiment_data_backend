@@ -16,12 +16,16 @@ def main():
     else:
         print("Kafka broker is available. Producer proceeding.")
 
-    # Create Kafka producer object and specify the broker address 
-    producer = KafkaProducer(bootstrap_servers=kafka_servers,
-                             value_serializer=lambda v: str(v).encode('utf-8'),
-                             key_serializer=lambda v: str(v).encode('utf-8'),
-                             retries=5,
-                             acks='all')
+    # Create Kafka producer object and specify the broker address
+    try:
+        producer = KafkaProducer(bootstrap_servers=kafka_servers,
+                                 value_serializer=lambda v: str(v).encode('utf-8'),
+                                 key_serializer=lambda v: str(v).encode('utf-8'),
+                                 retries=5,
+                                 acks='all')
+    except Exception as e:
+        print(f"Kafka producer error is {e}")
+        return
     
     # Import data from Gzip file
     record_total = 0
