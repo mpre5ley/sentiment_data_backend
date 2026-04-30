@@ -2,7 +2,7 @@ from pyspark.sql import SparkSession
 from pyspark.sql.functions import col, coalesce, concat_ws, from_json, lit, lower, regexp_replace
 from pyspark.ml.feature import Tokenizer, StopWordsRemover
 from pyspark.sql.types import BooleanType, DoubleType, LongType, StringType, StructField, StructType
-from utils import ping_kafka_cluster
+from utils import ping_kafka_cluster, wait_for_mysql
 import os
 import time
 import mysql.connector
@@ -99,6 +99,13 @@ def main():
         return
     else:
         print("Kafka broker is available. PySpark Worker proceeding.")
+
+    mysql_host = os.environ["MYSQL_HOST"]
+    mysql_port = os.environ.get("MYSQL_PORT", "3306")
+    if not wait_for_mysql(mysql_host, mysql_port):
+        print(f"MySQL at {mysql_host}:{mysql_port} is not reachable. Terminating application.")
+        return
+    print(f"MySQL at {mysql_host}:{mysql_port} is available. PySpark Worker proceeding.")
 
     # Create Spark session
     spark = SparkSession.builder \
