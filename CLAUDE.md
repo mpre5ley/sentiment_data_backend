@@ -7,8 +7,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Everything runs via Docker Compose; the services are not designed to run on the host (they reference containers by name: `kafka`, `mysql`).
 
 ```bash
-# Build and start the full pipeline (kafka, producer, consumer, pyspark-worker, mysql)
+# Build and start the full pipeline (kafka, producer, pyspark-worker, mysql)
 docker-compose up --build
+
+# Run the diagnostic consumer alongside everything else (it's gated behind
+# the `debug` profile so `docker-compose up` doesn't start it by default)
+docker-compose --profile debug up --build
 
 # Rebuild a single service after code changes
 docker-compose up --build pyspark-worker
@@ -41,7 +45,7 @@ producer ──► Kafka topic (sentiment_data) ──► consumer (sample/inspe
 ```
 
 - **`producer/producer.py`** — One-shot job. Reads `producer/data/Appliances_5.json.gz` (Amazon Appliances reviews) line-by-line and publishes each JSON record to Kafka, then exits. Values are sent as the `str(...)` of the dict encoded as UTF-8 (not `json.dumps`), so the consumer side parses Python-repr-formatted strings.
-- **`consumer/consumer.py`** — Diagnostic only. Connects with `group_id='sentiment_analysis_group'`, prints the first 3 messages, then exits. Not part of the persistent processing path.
+- **`consumer/consumer.py`** — Diagnostic only. Connects with `group_id='sentiment_analysis_group'`, prints the first 3 messages, then exits. Not part of the persistent processing path; only started when the `debug` compose profile is active.
 - **`pyspark-worker/pyspark-worker.py`** — The real processor. A Spark Structured Streaming job that:
   1. Reads the Kafka topic from `earliest`.
   2. Lowercases the raw `value`, strips non-alphanumeric chars, tokenizes (`Tokenizer`), removes English stopwords (`StopWordsRemover`).

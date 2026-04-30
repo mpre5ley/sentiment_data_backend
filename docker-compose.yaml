@@ -48,6 +48,7 @@ services:
       context: .
       dockerfile: consumer/Dockerfile
     container_name: consumer
+    profiles: ["debug"]
     depends_on:
       kafka:
         condition: service_healthy
