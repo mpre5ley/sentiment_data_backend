@@ -19,24 +19,36 @@ REVIEW_SCHEMA = StructType([
     StructField("unixReviewTime", LongType(), True),
 ])
 
+
+def mysql_config():
+    return {
+        "host": os.environ["MYSQL_HOST"],
+        "port": int(os.environ.get("MYSQL_PORT", "3306")),
+        "database": os.environ["MYSQL_DATABASE"],
+        "user": os.environ["MYSQL_USER"],
+        "password": os.environ["MYSQL_PASSWORD"],
+    }
+
+
 def write_transformed_batch(batch_df, broker_id):
     # Skip empty batches
     if batch_df.count() == 0:
         print(f"Batch {broker_id} is empty. Skipping write.")
         return
-        
+
     # Flatten tokens and tokens_no_stopwords columns
     transformed_df = batch_df \
         .withColumn("tokens", concat_ws(" ", "tokens")) \
         .withColumn("tokens_no_stopwords", concat_ws(" ", "tokens_no_stopwords"))
-    
-    # Set MySQL properties
-    mysql_url = "jdbc:mysql://mysql:3306/sentiment_db"
+
+    cfg = mysql_config()
+    mysql_url = f"jdbc:mysql://{cfg['host']}:{cfg['port']}/{cfg['database']}"
     mysql_properties = {
-        "user": "user",
-        "password": "password",
-        "driver": "com.mysql.cj.jdbc.Driver"}
-    
+        "user": cfg["user"],
+        "password": cfg["password"],
+        "driver": "com.mysql.cj.jdbc.Driver",
+    }
+
     # Retry MySQL connection
     max_retries = 5
     for attempt in range(max_retries):
@@ -53,7 +65,7 @@ def write_transformed_batch(batch_df, broker_id):
             if broker_id % 5 == 0:  # Every 5th batch
                 preview_mysql_rows()
             break
-            
+
         except Exception as e:
             print(f"Batch {broker_id} write failed (attempt {attempt + 1}\nError: {e}")
             if attempt < max_retries - 1:
@@ -64,18 +76,13 @@ def write_transformed_batch(batch_df, broker_id):
 def preview_mysql_rows():
     # Connect to the db and print a few rows
     try:
-        conn = mysql.connector.connect(
-            host="mysql",     
-            user="user",
-            password="password",
-            database="sentiment_db"
-        )
+        conn = mysql.connector.connect(**mysql_config())
         cursor = conn.cursor()
         cursor.execute("SELECT * FROM processed_reviews LIMIT 3")
         rows = cursor.fetchall()
         print("MySQL records:")
         for row in rows:
-            print(row[1]) 
+            print(row[1])
         cursor.close()
         conn.close()
     except mysql.connector.Error as err:
