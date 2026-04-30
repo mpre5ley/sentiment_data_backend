@@ -1,12 +1,23 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, lower, regexp_replace
+from pyspark.sql.functions import col, coalesce, concat_ws, from_json, lit, lower, regexp_replace
 from pyspark.ml.feature import Tokenizer, StopWordsRemover
-from pyspark.sql.types import StringType
-from pyspark.sql.functions import concat_ws
+from pyspark.sql.types import BooleanType, DoubleType, LongType, StringType, StructField, StructType
 from utils import ping_kafka_cluster
 import os
 import time
 import mysql.connector
+
+REVIEW_SCHEMA = StructType([
+    StructField("overall", DoubleType(), True),
+    StructField("verified", BooleanType(), True),
+    StructField("reviewTime", StringType(), True),
+    StructField("reviewerID", StringType(), True),
+    StructField("asin", StringType(), True),
+    StructField("reviewerName", StringType(), True),
+    StructField("reviewText", StringType(), True),
+    StructField("summary", StringType(), True),
+    StructField("unixReviewTime", LongType(), True),
+])
 
 def write_transformed_batch(batch_df, broker_id):
     # Skip empty batches
@@ -102,21 +113,43 @@ def main():
         print(f"Kafka server error is {e}")
         return
 
-    # Remove punctuation and make all letters lower case   
-    df_clean = df.withColumn("text_lower", lower(col("value").cast(StringType())))
-    df_clean = df_clean.withColumn("text_lower", regexp_replace("text_lower", "[^a-zA-Z0-9\\s]", ""))
+    # Parse JSON value into typed columns and rename to snake_case
+    df_parsed = df.select(
+        col("timestamp").alias("event_timestamp"),
+        from_json(col("value").cast(StringType()), REVIEW_SCHEMA).alias("review"),
+    ).select(
+        "event_timestamp",
+        col("review.overall").alias("overall"),
+        col("review.verified").alias("verified"),
+        col("review.reviewTime").alias("review_time"),
+        col("review.reviewerID").alias("reviewer_id"),
+        col("review.asin").alias("asin"),
+        col("review.reviewerName").alias("reviewer_name"),
+        col("review.reviewText").alias("review_text"),
+        col("review.summary").alias("summary"),
+        col("review.unixReviewTime").alias("unix_review_time"),
+    )
+
+    # Lowercase + strip non-alphanumerics from review_text (coalesce nulls so Tokenizer doesn't NPE)
+    df_clean = df_parsed.withColumn(
+        "text_lower",
+        regexp_replace(lower(coalesce(col("review_text"), lit(""))), "[^a-zA-Z0-9\\s]", ""),
+    )
 
     # Tokenize all sentences
     tokenizer = Tokenizer(inputCol="text_lower", outputCol="tokens")
     df_tokens = tokenizer.transform(df_clean)
-    
+
     # Remove stopwords
     custom_stopwords = StopWordsRemover.loadDefaultStopWords("english")
     remover = StopWordsRemover(inputCol="tokens", outputCol="tokens_no_stopwords", stopWords=custom_stopwords)
     df_no_stopwords = remover.transform(df_tokens)
 
-    # Assign new columns to final dataframe
-    processed_spark_df = df_no_stopwords.select("timestamp", "text_lower", "tokens", "tokens_no_stopwords")
+    processed_spark_df = df_no_stopwords.select(
+        "event_timestamp", "overall", "verified", "review_time", "reviewer_id",
+        "asin", "reviewer_name", "review_text", "summary", "unix_review_time",
+        "text_lower", "tokens", "tokens_no_stopwords",
+    )
 
     # Print header and first 5 rows of processed_spark_df
     print("Processed DataFrame Schema:")
