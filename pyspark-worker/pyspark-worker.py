@@ -155,8 +155,14 @@ def main():
     print("Processed DataFrame Schema:")
     processed_spark_df.printSchema()
     
-    # Use the function in foreachBatch
-    query = processed_spark_df.writeStream.foreachBatch(write_transformed_batch).start()
+    # Use the function in foreachBatch. The checkpoint location persists
+    # Kafka offsets so a restart resumes where the previous run left off
+    # rather than re-reading from `earliest` and double-writing.
+    checkpoint_location = os.getenv("SPARK_CHECKPOINT_LOCATION", "/checkpoints/sentiment_data")
+    query = processed_spark_df.writeStream \
+        .foreachBatch(write_transformed_batch) \
+        .option("checkpointLocation", checkpoint_location) \
+        .start()
 
     # Waits for the stream to finish (this blocks indefinitely)
     query.awaitTermination()
