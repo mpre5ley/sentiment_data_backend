@@ -22,14 +22,21 @@ services:
       - ./config/kafka-log4j.properties:/opt/bitnami/kafka/config/log4j.properties
     networks:
       - sentiment-network
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/bitnami/kafka/bin/kafka-topics.sh --bootstrap-server kafka:9092 --list >/dev/null 2>&1"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 20s
 
   producer:
-    build: 
+    build:
       context: .
       dockerfile: producer/Dockerfile
     container_name: producer
-    depends_on: 
-      - kafka 
+    depends_on:
+      kafka:
+        condition: service_healthy
     networks:
       - sentiment-network
     environment:
@@ -41,14 +48,16 @@ services:
       context: .
       dockerfile: consumer/Dockerfile
     container_name: consumer
-    depends_on: 
-      - kafka
+    profiles: ["debug"]
+    depends_on:
+      kafka:
+        condition: service_healthy
     networks:
       - sentiment-network
     environment:
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       TOPIC_NAME: ${KAFKA_TOPIC}
-  
+
   pyspark-worker:
     build:
       context: .
@@ -56,28 +65,45 @@ services:
     container_name: pyspark-worker
     user: root
     depends_on:
-      - kafka
-      - mysql
-    networks: 
+      kafka:
+        condition: service_healthy
+      mysql:
+        condition: service_healthy
+    networks:
       - sentiment-network
     environment:
       KAFKA_BOOTSTRAP_SERVERS: ${KAFKA_BOOTSTRAP_SERVERS}
       TOPIC_NAME: ${KAFKA_TOPIC}
+      SPARK_CHECKPOINT_LOCATION: /checkpoints/sentiment_data
+      MYSQL_HOST: ${MYSQL_HOST}
+      MYSQL_PORT: ${MYSQL_PORT}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+    volumes:
+      - spark-checkpoints:/checkpoints
 
   mysql:
     image: mysql:8.0
     container_name: mysql
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: sentiment_db
-      MYSQL_USER: user
-      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
       - mysql-data:/var/lib/mysql
+      - ./mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     networks:
       - sentiment-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "${MYSQL_USER}", "-p${MYSQL_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
 
 networks:
   sentiment-network:
@@ -87,5 +113,7 @@ volumes:
   kafka-data:
     driver: local
   mysql-data:
+    driver: local
+  spark-checkpoints:
     driver: local
 

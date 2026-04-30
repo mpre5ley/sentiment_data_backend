@@ -1,5 +1,5 @@
-from .util import ping_kafka_cluster
+from .util import ping_kafka_cluster, wait_for_mysql
 
-__all__ = ['ping_kafka_cluster']
+__all__ = ['ping_kafka_cluster', 'wait_for_mysql']
 
-__version__ = '1.0'
+__version__ = '1.1'

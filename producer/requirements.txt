@@ -1,1 +1,1 @@
-kafka-python==2.0.2
+# Producer-specific dependencies. Shared deps live in utils/requirements.txt.
