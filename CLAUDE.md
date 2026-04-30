@@ -25,6 +25,10 @@ docker exec -it mysql mysql -uuser -ppassword sentiment_db -e "SELECT * FROM pro
 
 There is no test suite, lint config, or formatter wired up in this repo.
 
+## Commit messages
+
+Do not mention Claude, Claude Code, or any AI assistant in commit messages, PR titles, or PR descriptions. No "Generated with…" trailers, no co-author lines, no `claude.ai/code` links — write commits as if authored by a human contributor.
+
 `.env` at the repo root supplies `KAFKA_BOOTSTRAP_SERVERS=kafka:9092` and `KAFKA_TOPIC=sentiment_data`, which `docker-compose.yaml` interpolates into the producer/consumer/pyspark-worker environments.
 
 ## Architecture
