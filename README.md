@@ -24,13 +24,21 @@ git clone https://github.com/yourusername/sentiment-data-pipeline.git
 cd sentiment-data-pipeline
 ```
 
-### 2. Build and run the containers
+### 2. Create your local config
+
+```bash
+cp .env.example .env
+```
+
+Then set `MYSQL_PASSWORD` and `MYSQL_ROOT_PASSWORD` in `.env`. The file is git-ignored and never committed.
+
+### 3. Build and run the containers
 
 ```bash
 docker-compose up --build
 ```
 
-### 3. Verify it's working
+### 4. Verify it's working
 
 - Console output should stream ingested review data every few seconds.
 

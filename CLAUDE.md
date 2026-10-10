@@ -40,7 +40,7 @@ Do not mention Claude, Claude Code, or any AI assistant in commit messages, PR t
 
 ## Configuration
 
-`.env` at the repo root is the single source of truth for runtime config. `docker-compose.yaml` interpolates these into the relevant service environments:
+`.env` at the repo root is the single source of truth for runtime config. It is git-ignored because it holds the MySQL passwords; create it with `cp .env.example .env` and fill in the two password values. Changing the passwords after the `mysql-data` volume exists requires `docker-compose down -v` so MySQL re-creates the users. `docker-compose.yaml` interpolates these into the relevant service environments:
 
 - `KAFKA_BOOTSTRAP_SERVERS=kafka:9092`, `KAFKA_TOPIC=sentiment_data` — used by all three Python services.
 - `MYSQL_HOST`, `MYSQL_PORT`, `MYSQL_DATABASE`, `MYSQL_USER`, `MYSQL_PASSWORD` — consumed by `pyspark-worker` (both the JDBC writer and `preview_mysql_rows`) and by the MySQL container.
