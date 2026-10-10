@@ -1,5 +1,5 @@
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, coalesce, concat_ws, from_json, lit, lower, regexp_replace
+from pyspark.sql.functions import col, coalesce, concat_ws, from_json, lit, lower, regexp_replace, sha2
 from pyspark.ml.feature import Tokenizer, StopWordsRemover
 from pyspark.sql.types import BooleanType, DoubleType, LongType, StringType, StructField, StructType
 from utils import ping_kafka_cluster, wait_for_mysql
@@ -30,6 +30,37 @@ def mysql_config():
     }
 
 
+# Column order here is the order values are bound in INSERT_SQL. Names must
+# match mysql/init.sql.
+SINK_COLUMNS = [
+    "review_hash", "event_timestamp", "overall", "verified", "review_time", "reviewer_id",
+    "asin", "reviewer_name", "review_text", "summary", "unix_review_time",
+    "text_lower", "tokens", "tokens_no_stopwords",
+]
+INSERT_SQL = (
+    f"INSERT INTO processed_reviews ({', '.join(SINK_COLUMNS)}) "
+    f"VALUES ({', '.join(['%s'] * len(SINK_COLUMNS))}) "
+    "ON DUPLICATE KEY UPDATE review_hash = review_hash"
+)
+
+
+def insert_partition(rows):
+    # Runs on the executors. The ON DUPLICATE KEY UPDATE no-op makes the insert
+    # idempotent on review_hash, so replaying a batch (retry after a partial
+    # write, or restart from the checkpoint) never duplicates rows.
+    rows = [tuple(row) for row in rows]
+    if not rows:
+        return
+    conn = mysql.connector.connect(**mysql_config())
+    try:
+        cursor = conn.cursor()
+        cursor.executemany(INSERT_SQL, rows)
+        conn.commit()
+        cursor.close()
+    finally:
+        conn.close()
+
+
 def write_transformed_batch(batch_df, broker_id):
     # Skip empty batches
     if batch_df.count() == 0:
@@ -39,39 +70,29 @@ def write_transformed_batch(batch_df, broker_id):
     # Flatten tokens and tokens_no_stopwords columns
     transformed_df = batch_df \
         .withColumn("tokens", concat_ws(" ", "tokens")) \
-        .withColumn("tokens_no_stopwords", concat_ws(" ", "tokens_no_stopwords"))
-
-    cfg = mysql_config()
-    mysql_url = f"jdbc:mysql://{cfg['host']}:{cfg['port']}/{cfg['database']}"
-    mysql_properties = {
-        "user": cfg["user"],
-        "password": cfg["password"],
-        "driver": "com.mysql.cj.jdbc.Driver",
-    }
+        .withColumn("tokens_no_stopwords", concat_ws(" ", "tokens_no_stopwords")) \
+        .select(*SINK_COLUMNS)
 
     # Retry MySQL connection
     max_retries = 5
     for attempt in range(max_retries):
         try:
             # Write to MySQL db
-            transformed_df.write.jdbc(
-                url=mysql_url,
-                table="processed_reviews",
-                mode="append",
-                properties=mysql_properties
-            )
+            transformed_df.foreachPartition(insert_partition)
             print(f"Batch {broker_id} successfully written to MySQL (attempt {attempt + 1})")
             # Preview after writing (only for first few batches to avoid spam)
             if broker_id % 5 == 0:  # Every 5th batch
                 preview_mysql_rows()
-            break
+            return
 
         except Exception as e:
-            print(f"Batch {broker_id} write failed (attempt {attempt + 1}\nError: {e}")
+            print(f"Batch {broker_id} write failed (attempt {attempt + 1})\nError: {e}")
             if attempt < max_retries - 1:
                 time.sleep(2)
-            else:
-                print(f"Batch {broker_id} failed after {max_retries} attempts. Skipping batch.")
+
+    # Raise so the stream fails instead of committing offsets for a batch that
+    # was never written. On restart Spark replays it from the checkpoint.
+    raise RuntimeError(f"Batch {broker_id} failed after {max_retries} attempts")
 
 def preview_mysql_rows():
     # Connect to the db and print a few rows
@@ -129,9 +150,11 @@ def main():
 
     # Parse JSON value into typed columns and rename to snake_case
     df_parsed = df.select(
+        sha2(col("value").cast(StringType()), 256).alias("review_hash"),
         col("timestamp").alias("event_timestamp"),
         from_json(col("value").cast(StringType()), REVIEW_SCHEMA).alias("review"),
     ).select(
+        "review_hash",
         "event_timestamp",
         col("review.overall").alias("overall"),
         col("review.verified").alias("verified"),
@@ -160,7 +183,7 @@ def main():
     df_no_stopwords = remover.transform(df_tokens)
 
     processed_spark_df = df_no_stopwords.select(
-        "event_timestamp", "overall", "verified", "review_time", "reviewer_id",
+        "review_hash", "event_timestamp", "overall", "verified", "review_time", "reviewer_id",
         "asin", "reviewer_name", "review_text", "summary", "unix_review_time",
         "text_lower", "tokens", "tokens_no_stopwords",
     )
