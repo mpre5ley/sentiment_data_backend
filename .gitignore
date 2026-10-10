@@ -9,3 +9,5 @@ __pycache__
 *.log
 # Kafka Data
 kafka-data/
+# Local config (contains credentials)
+.env
