@@ -4,30 +4,38 @@ Audit date: 2026-10-10. Scope: every service, the compose file, Dockerfiles, `my
 
 Severity scale: **High** = data loss, data corruption, or exposed secret. **Medium** = correctness or operability problem that will bite under normal use. **Low** = hygiene, performance, or documentation.
 
+Status is tracked in the Status column and in a **Status** line under each finding. Findings stay in this document after they are fixed so the log remains complete.
+
+Change log:
+
+- 2026-10-10: PR #3 fixed finding 1. PR #4 fixed the image-availability part of finding 9. PR #5 fixed findings 2, 3, 4, 7 and 8 and added the first integration test (finding 16).
+
 ## Summary
 
-| # | Severity | Area | Finding |
-|---|----------|------|---------|
-| 1 | High | Security | `.env` with MySQL passwords is committed and pushed to a public GitHub repo |
-| 2 | High | Data integrity | Re-running the producer duplicates every record in Kafka and MySQL; no dedupe key exists |
-| 3 | High | Data integrity | Failed batches are silently skipped after 5 retries, so offsets commit and rows are lost |
-| 4 | High | Data quality | Bundled dataset is 91% duplicate lines (206 unique of 2,277) |
-| 5 | Medium | Correctness | Producer never checks send results; failed sends are invisible |
-| 6 | Medium | Correctness | Malformed JSON becomes an all-null row in MySQL instead of being dropped or counted |
-| 7 | Medium | Correctness | Partial JDBC write + retry duplicates rows |
-| 8 | Medium | Operability | No `restart` policy on the worker; a crash stops the pipeline permanently |
-| 9 | Medium | Supply chain | Base images and `kafka-python` are end-of-life or at risk of disappearing |
-| 10 | Medium | Performance | `batch_df.count()` computes every batch twice |
-| 11 | Low | Security | Worker runs as root; MySQL and Kafka ports published to host; password on healthcheck command line |
-| 12 | Low | Correctness | Tokenizer emits empty tokens on repeated whitespace; non-ASCII letters are stripped |
-| 13 | Low | Correctness | Diagnostic consumer commits offsets, so it never shows the same "first 3" twice |
-| 14 | Low | Hygiene | `ping_kafka_cluster` retries without sleeping; dead `key_serializer`; misnamed `broker_id` |
-| 15 | Low | Docs | README is stale (wrong dataset, wrong clone URL, old example output, no mention of `.env` or MySQL) |
-| 16 | Low | Testing | No tests, lint, or CI of any kind |
+| # | Severity | Area | Finding | Status |
+|---|----------|------|---------|--------|
+| 1 | High | Security | `.env` with MySQL passwords is committed and pushed to a public GitHub repo | Fixed (PR #3) |
+| 2 | High | Data integrity | Re-running the producer duplicates every record in Kafka and MySQL; no dedupe key exists | Fixed (PR #5) |
+| 3 | High | Data integrity | Failed batches are silently skipped after 5 retries, so offsets commit and rows are lost | Fixed (PR #5) |
+| 4 | High | Data quality | Bundled dataset is 91% duplicate lines (206 unique of 2,277) | Fixed (PR #5) |
+| 5 | Medium | Correctness | Producer never checks send results; failed sends are invisible | Open |
+| 6 | Medium | Correctness | Malformed JSON becomes an all-null row in MySQL instead of being dropped or counted | Open |
+| 7 | Medium | Correctness | Partial JDBC write + retry duplicates rows | Fixed (PR #5) |
+| 8 | Medium | Operability | No `restart` policy on the worker; a crash stops the pipeline permanently | Fixed (PR #5) |
+| 9 | Medium | Supply chain | Base images and `kafka-python` are end-of-life or at risk of disappearing | Partially fixed (PR #4) |
+| 10 | Medium | Performance | `batch_df.count()` computes every batch twice | Open |
+| 11 | Low | Security | Worker runs as root; MySQL and Kafka ports published to host; password on healthcheck command line | Open |
+| 12 | Low | Correctness | Tokenizer emits empty tokens on repeated whitespace; non-ASCII letters are stripped | Open |
+| 13 | Low | Correctness | Diagnostic consumer commits offsets, so it never shows the same "first 3" twice | Open |
+| 14 | Low | Hygiene | `ping_kafka_cluster` retries without sleeping; dead `key_serializer`; misnamed `broker_id` | Open |
+| 15 | Low | Docs | README is stale (wrong dataset, wrong clone URL, old example output, no mention of `.env` or MySQL) | Open |
+| 16 | Low | Testing | No tests, lint, or CI of any kind | Partially fixed (PR #5) |
 
 ## Findings
 
 ### 1. Secrets committed to a public repository (High)
+
+**Status: Fixed in PR #3.** `.env` is untracked and git-ignored, `.env.example` is committed with placeholder passwords, and the local passwords were rotated. The old passwords remain in git history and are treated as burned; history was not rewritten.
 
 `.env` is tracked in git (`git ls-files .env` returns it), has been in history since commit `436ee67`, and the `origin` remote is a public GitHub repository. It contains `MYSQL_PASSWORD` and `MYSQL_ROOT_PASSWORD`, and both values are weak defaults. `.gitignore` does not exclude it.
 
@@ -39,6 +47,8 @@ Recommendation:
 
 ### 2. Producer re-runs duplicate the whole dataset (High)
 
+**Status: Fixed in PR #5.** Each row carries `review_hash` (SHA-256 of the raw Kafka message) with a `UNIQUE` key, and the worker inserts with `ON DUPLICATE KEY UPDATE review_hash = review_hash`. Re-running the producer still republishes to Kafka but adds no rows to MySQL; verified by `tests/integration/test_idempotency.py`. The optional producer-side guard was not added.
+
 The producer is a one-shot job with no idempotency guard. Running `docker-compose up` a second time without `down -v` restarts the exited `producer` container, which republishes all 2,277 lines as new Kafka offsets. The Spark checkpoint correctly resumes after the old offsets, so the worker faithfully appends 2,277 more rows to MySQL. `processed_reviews` has no unique key, so nothing stops this.
 
 Recommendation:
@@ -48,6 +58,8 @@ Recommendation:
 
 ### 3. Failed batches are dropped silently (High)
 
+**Status: Fixed in PR #5.** After five attempts the batch raises, the query fails, and `restart: on-failure` brings the worker back to replay from the checkpoint. Exercised during development: the worker restarted 14 times on a bad SQL clause and replayed batch 0 with no loss once fixed.
+
 `write_transformed_batch` catches every exception, retries 5 times, then prints "Skipping batch" and returns normally. Because `foreachBatch` returned without raising, Structured Streaming commits the batch's offsets to the checkpoint. The rows in that batch are gone and will never be reprocessed. A MySQL outage longer than about 10 seconds therefore means permanent data loss with only a log line as evidence.
 
 Recommendation:
@@ -55,6 +67,8 @@ Recommendation:
 - Pair this with finding 8 (`restart: on-failure`) so the restart actually happens.
 
 ### 4. Bundled dataset is mostly duplicates (High)
+
+**Status: Fixed in PR #5.** Exact duplicate messages collapse on `review_hash`, so the table lands at 206 rows. The natural key `(reviewer_id, asin, unix_review_time)` was rejected because it collides for 17 genuinely different reviews. The source file was left as-is; the expected row count is pinned in the integration test.
 
 `producer/data/Appliances_5.json.gz` has 2,277 lines but only 206 distinct lines. Ten records are each repeated 204 times and 41 records appear twice. Among the 56 groups that share `(reviewerID, asin, unixReviewTime)`, 51 are byte-identical and 5 differ in content, so that triple is close to but not quite a unique key in the source.
 
@@ -79,13 +93,19 @@ Recommendation: filter `review IS NULL` out before the projection, and count the
 
 ### 7. Partial write plus retry duplicates rows (Medium)
 
+**Status: Fixed in PR #5.** The insert is idempotent on `review_hash`, so retrying a batch after a partial write is safe.
+
 A JDBC batch write runs one transaction per DataFrame partition, not one per batch. If partition 1 commits and partition 2 fails, the retry loop rewrites partition 1. With a single-partition topic this is unlikely today, but `local[*]` and any future repartition make it real. The unique key from finding 2 removes the problem entirely; until then, set `.option("numPartitions", 1)` on the write or `coalesce(1)` so a batch is one transaction.
 
 ### 8. No restart policy on the worker (Medium)
 
+**Status: Fixed in PR #5.** `pyspark-worker` has `restart: on-failure`. The producer intentionally does not.
+
 `pyspark-worker` has no `restart:` setting. If Spark exits for any reason (OOM, Kafka rebalance error, finding 3 once it re-raises), the pipeline stays down until someone notices. Add `restart: on-failure` to the worker. Do not add it to the producer; a producer that fails mid-run and restarts would republish the prefix (finding 2).
 
 ### 9. End-of-life and at-risk dependencies (Medium)
+
+**Status: Partially fixed in PR #4.** `bitnami/spark:3.4.1` and `bitnami/kafka:3.5.1` had already disappeared from Docker Hub, which broke `docker compose up --build` on a fresh clone; both now pull from `bitnamilegacy/`. Python 3.9, `kafka-python`, Spark 3.4, the redundant `pyspark` pip install, and the long-term move to `apache/` images remain open. The MySQL JDBC jar is now unused by the worker and can be removed.
 
 - `python:3.9-slim`: Python 3.9 reached end of life in October 2025.
 - `kafka-python==2.0.2`: last release 2020, unmaintained, known to fail to import on Python 3.12 (`kafka.vendor.six.moves`). Upgrading the base image without replacing this pin will break all three services.
@@ -132,6 +152,8 @@ The README says "Amazon book reviews" (the data is Appliances), gives a placehol
 
 ### 16. No tests or CI (Low severity, high leverage)
 
+**Status: Partially fixed in PR #5.** `tests/integration/test_idempotency.py` covers recommended test 3 below. Everything else, including CI, remains open.
+
 There is no test suite, no linter, and no CI. Every finding above was found by reading; none would be caught automatically on the next change.
 
 ## Recommended tests
@@ -163,8 +185,8 @@ Suggested layout: `tests/unit/` (pytest, runs anywhere with `pip install pyspark
 
 ## Suggested order of work
 
-1. Finding 1 (secrets) - ten minutes, do it first.
-2. Findings 2, 3, 4, 7 together - they are one design decision: pick the unique key, make the write idempotent, make failures raise, add `restart: on-failure`. Then write the idempotency and failure-path tests to lock it in.
+1. ~~Finding 1 (secrets) - ten minutes, do it first.~~ Done in PR #3.
+2. ~~Findings 2, 3, 4, 7 together - they are one design decision: pick the unique key, make the write idempotent, make failures raise, add `restart: on-failure`. Then write the idempotency and failure-path tests to lock it in.~~ Done in PR #5; the failure-path test is still unwritten.
 3. Extract `transform()` and add the schema contract and transformation unit tests.
 4. Finding 9 (dependency bumps) - do after tests exist so the bump is verifiable.
 5. Everything else as convenient.
