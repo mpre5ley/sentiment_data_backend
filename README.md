@@ -48,6 +48,12 @@ pyspark-worker  | overall 50 verified true reviewtime 08 5 2015 reviewerid a8r48
 
 ---
 
+## Audit
+
+Findings and recommended tests from a code audit of the pipeline are in [AUDIT.md](AUDIT.md).
+
+---
+
 ## License
 
 MIT
